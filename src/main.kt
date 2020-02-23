@@ -1,5 +1,7 @@
 import jdk.nashorn.internal.runtime.JSType.toDouble
+import kotlin.random.Random.Default.nextInt
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 val exampleDistanceMatrix = arrayOf(
     doubleArrayOf(0.0,  3.0,  4.0,  2.0,  7.0),
@@ -53,6 +55,41 @@ fun scoreFitness(solution: IntArray, distanceMatrix: Array<DoubleArray>): Double
     return -1 * (routeLength + distanceMatrix[solution.last()][0])
 }
 
+fun testOrderCrossover() {
+    //    TODO: Mock Random.nextInt. Only works with split index = 3
+    //    val parent1 = intArrayOf(3,4,8,2,7,1,6,5)
+    //    val parent2 = intArrayOf(4,2,5,1,6,8,3,7)
+    //    val expectedOffspring = intArrayOf(5,6,8,2,7,1,3,4)
+    //
+    //    val actualOffspring: IntArray = orderCrossover(parent1, parent2)
+    //    printPopulationMember(actualOffspring)
+    //    assertTrue(expectedOffspring.contentEquals(actualOffspring))
+}
+
+fun orderCrossover(parent1: IntArray, parent2: IntArray, windowSize: Int = 3): IntArray {
+    val parentLengths = parent1.size
+    val splitIndex = nextInt(parentLengths - windowSize - 1)
+
+    val offspring = IntArray(parentLengths)
+
+    for (i in splitIndex until splitIndex + windowSize) {
+        offspring[i] = parent1[i]
+    }
+
+    var offspringBaseIndex = 0
+    for (i in parent2.indices) {
+        val parentIndex  = (i + splitIndex + windowSize) % parentLengths
+        val offspringIndex  = (offspringBaseIndex + splitIndex + windowSize) % parentLengths
+        val candidate: Int = parent2[parentIndex]
+        if (!offspring.contains(candidate)) {
+            offspring[offspringIndex] = candidate
+            offspringBaseIndex += 1
+        }
+    }
+
+    return offspring
+}
+
 fun main() {
     // Step One: Generate the initial population of individuals randomly. (First generation)
     //
@@ -71,12 +108,12 @@ fun main() {
     val populationSize = 10
     val filepath = "./data/five/five_d.txt"
     val distances = getDistanceMatrixFromFile(filepath)
-    println(distances[0][1])
 
     val solutionLength = distances.size
 
-    val population = Array(solutionLength) { generateRandomSolution(solutionLength)}
+    val population = Array(populationSize) { generateRandomSolution(solutionLength)}
     population.forEach { member -> printPopulationMember(member) }
     testScoreFitnessNaive()
     testScoreFitnessOptimal()
+    testOrderCrossover()
 }
