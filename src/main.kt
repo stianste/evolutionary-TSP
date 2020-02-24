@@ -1,4 +1,5 @@
 import jdk.nashorn.internal.runtime.JSType.toDouble
+import kotlin.random.Random.Default.nextDouble
 import kotlin.random.Random.Default.nextInt
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -90,6 +91,67 @@ fun orderCrossover(parent1: IntArray, parent2: IntArray, windowSize: Int = 3): I
     return offspring
 }
 
+fun mutate(genome: IntArray, mutationChance: Double = 0.01): IntArray {
+    if (nextDouble() > mutationChance) {
+        return genome
+    }
+
+    val firstSwapIndex = nextInt(genome.size)
+    var secondSwapIndex = nextInt(genome.size)
+
+    while (secondSwapIndex == firstSwapIndex)
+        secondSwapIndex = nextInt(genome.size)
+
+    val newGenome = genome.toMutableList()
+    newGenome[firstSwapIndex] = newGenome[secondSwapIndex]
+    newGenome[secondSwapIndex] = newGenome[firstSwapIndex]
+
+    return newGenome.toIntArray()
+}
+
+fun createSelectionTable(
+    population: Array<IntArray>,
+    distanceMatrix: Array<DoubleArray>,
+    MAX_FITNESS: Double
+): MutableList<IntArray> {
+
+    val selectionTable = mutableListOf<IntArray>()
+    population.forEach { member ->
+        val fitness = scoreFitness(member, distanceMatrix)
+        val numLotteryTickets = (MAX_FITNESS + fitness).toInt()
+        (0 until numLotteryTickets).map {selectionTable.add(member)}
+    }
+
+    return selectionTable
+}
+
+fun naturalSelection(
+        population: Array<IntArray>,
+        distanceMatrix: Array<DoubleArray> = exampleDistanceMatrix,
+        MAX_FITNESS: Double
+): Pair<IntArray, IntArray> {
+
+    val selectionTable = createSelectionTable(population, distanceMatrix, MAX_FITNESS)
+    val selectedCanidates = selectionTable.shuffled().take(2)
+
+    return Pair(selectedCanidates[0], selectedCanidates[1])
+}
+
+fun testCreateSelectionTable() {
+    // -19 fitness
+    val bestSolution = intArrayOf(1, 3, 2, 5, 4).map { it - 1 }.toIntArray()
+
+    // -25 fitness
+    val naiveSolution = intArrayOf(1, 2, 3, 4, 5).map {it - 1}.toIntArray()
+
+    val population = arrayOf(bestSolution, naiveSolution)
+    val selectionTable = createSelectionTable(population, exampleDistanceMatrix, MAX_FITNESS = 30.0)
+
+    // The best solution should have 30 - 19 = 11 tickets, and the naive solution should have 30 - 25 = 5 tickets,
+    // totaling 11 + 5 = 16 tickets
+    assertEquals(30 - 19 + 30 - 25, selectionTable.size)
+}
+
 fun main() {
     // Step One: Generate the initial population of individuals randomly. (First generation)
     //
@@ -105,15 +167,20 @@ fun main() {
     //  Best solution for five: 19
     //  Best solution for FRI26: 937
 
-    val populationSize = 10
+    val POPULATION_SIZE = 10
+    val MUTATION_CHANCE = 0.01
+    val MAX_ITERATIONS = 500
+    val MAX_FITNESS = 30
+
     val filepath = "./data/five/five_d.txt"
     val distances = getDistanceMatrixFromFile(filepath)
 
     val solutionLength = distances.size
 
-    val population = Array(populationSize) { generateRandomSolution(solutionLength)}
+    val population = Array(POPULATION_SIZE) { generateRandomSolution(solutionLength)}
     population.forEach { member -> printPopulationMember(member) }
     testScoreFitnessNaive()
     testScoreFitnessOptimal()
     testOrderCrossover()
+    testCreateSelectionTable()
 }
