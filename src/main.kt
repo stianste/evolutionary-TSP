@@ -1,4 +1,5 @@
 import jdk.nashorn.internal.runtime.JSType.toDouble
+import java.io.File
 import kotlin.random.Random.Default.nextDouble
 import kotlin.random.Random.Default.nextInt
 import kotlin.test.assertEquals
@@ -12,16 +13,43 @@ val exampleDistanceMatrix = arrayOf(
     doubleArrayOf(7.0,  3.0,  8.0,  6.0,  0.0)
 )
 
+val five_filepath = "./src/data/five/five_d.txt"
+val fri26_filepath = "./src/data/FRI26/fri26_d.txt"
+
 fun printPopulationMember(member: IntArray) {
     print("[")
-    member.forEach { print(it) }
+    member.forEach {print("$it, ")}
     println("]")
 }
 
-fun getDistanceMatrixFromFile(filepath: String): Array<DoubleArray> {
-    // TODO Actually read from file
-    println("Filename: $filepath") // Placeholder for unused variable
-    return exampleDistanceMatrix
+private fun mapStringToDoubleArray(s: String): DoubleArray {
+    return s.split(" ").filter{it != ""}.map { it.toDouble() }.toDoubleArray()
+}
+
+fun testMapStringToDoubleArray() {
+    val input = "1.0 2.0 3.0 4.0"
+    val expected = doubleArrayOf(1.0, 2.0, 3.0, 4.0)
+    val actual = mapStringToDoubleArray(input)
+    assertTrue(expected contentEquals actual)
+}
+
+fun getDistanceMatrixFromFile(fileName: String): Array<DoubleArray> {
+
+    val distanceMatrix = mutableListOf<DoubleArray>()
+
+    File(fileName).useLines { line ->
+        line.toList().filter{it != ""}.map {
+            distanceMatrix.add(mapStringToDoubleArray(it))
+        }
+    }
+
+    return distanceMatrix.toTypedArray()
+}
+
+fun testGetDistanceMatrixFromFile() {
+    val distanceMatrix = getDistanceMatrixFromFile(five_filepath)
+
+    assertTrue(distanceMatrix contentDeepEquals exampleDistanceMatrix)
 }
 
 fun generateRandomSolution(totalNumberOfCities: Int): IntArray {
@@ -125,15 +153,9 @@ fun createSelectionTable(
     return selectionTable
 }
 
-fun naturalSelection(
-        population: Array<IntArray>,
-        distanceMatrix: Array<DoubleArray> = exampleDistanceMatrix,
-        MAX_FITNESS: Double
-): Pair<IntArray, IntArray> {
+fun naturalSelection(selectionTable:  MutableList<IntArray>): Pair<IntArray, IntArray> {
 
-    val selectionTable = createSelectionTable(population, distanceMatrix, MAX_FITNESS)
     val selectedCanidates = selectionTable.shuffled().take(2)
-
     return Pair(selectedCanidates[0], selectedCanidates[1])
 }
 
@@ -167,20 +189,43 @@ fun main() {
     //  Best solution for five: 19
     //  Best solution for FRI26: 937
 
-    val POPULATION_SIZE = 10
-    val MUTATION_CHANCE = 0.01
-    val MAX_ITERATIONS = 500
-    val MAX_FITNESS = 30
-
-    val filepath = "./data/five/five_d.txt"
-    val distances = getDistanceMatrixFromFile(filepath)
-
-    val solutionLength = distances.size
-
-    val population = Array(POPULATION_SIZE) { generateRandomSolution(solutionLength)}
-    population.forEach { member -> printPopulationMember(member) }
+    testMapStringToDoubleArray()
+    testGetDistanceMatrixFromFile()
     testScoreFitnessNaive()
     testScoreFitnessOptimal()
     testOrderCrossover()
     testCreateSelectionTable()
+
+    val POPULATION_SIZE = 10
+    val MUTATION_CHANCE = 0.01
+    val MAX_ITERATIONS = 10
+    val MAX_FITNESS = 1000.0
+    val WINDOW_SIZE = 2
+
+    val filepath = fri26_filepath
+
+    val distanceMatrix = getDistanceMatrixFromFile(filepath)
+
+    val solutionLength = distanceMatrix.size
+
+    val currentPopulation = Array(POPULATION_SIZE) { generateRandomSolution(solutionLength)}
+    currentPopulation.forEach { member -> printPopulationMember(member) }
+
+    (0..MAX_ITERATIONS).forEach{ generationNumber ->
+        println("Generation number: $generationNumber")
+
+        val nextPopulation = mutableListOf<IntArray>()
+        val selectionTable = createSelectionTable(currentPopulation, distanceMatrix, MAX_FITNESS)
+        println(selectionTable.size)
+
+        repeat((0..POPULATION_SIZE).count()) {
+            val parents = naturalSelection(selectionTable)
+            val newMember = orderCrossover(parents.first, parents.second, WINDOW_SIZE)
+            val mutatedMember = mutate(newMember, MUTATION_CHANCE)
+            val fitness = scoreFitness(mutatedMember, distanceMatrix)
+            printPopulationMember(mutatedMember)
+            println(fitness)
+            nextPopulation.add(mutatedMember)
+        }
+    }
 }
