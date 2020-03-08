@@ -13,11 +13,15 @@ val exampleDistanceMatrix = arrayOf(
 )
 
 val five_filepath = "./src/data/five/five_d.txt"
+val p01_filepath = "./src/data/p01/p01_d.txt"
 val fri26_filepath = "./src/data/FRI26/fri26_d.txt"
 
 fun printPopulationMember(member: IntArray) {
     print("[")
-    member.forEach {print("$it, ")}
+    member.forEach {
+        val zeroAdjusted = it + 1
+        print("$zeroAdjusted, ")
+    }
     println("]")
 }
 
@@ -56,6 +60,15 @@ fun generateRandomSolution(totalNumberOfCities: Int): IntArray {
     return (1 until totalNumberOfCities).toList().shuffled().toIntArray()
 }
 
+fun scoreFitness(solution: IntArray, distanceMatrix: Array<DoubleArray>, maxFitness: Double): Double {
+    var routeLength = distanceMatrix[0][solution[0]]
+    for ( i in 1 until solution.size) {
+        routeLength += distanceMatrix[solution[i-1]][solution[i]]
+    }
+
+    return maxFitness - (routeLength + distanceMatrix[solution.last()][0])
+}
+
 fun testScoreFitnessOptimal() {
     // TODO: Write proper tests suite
     // Subtract one from optimal solution for 0 index
@@ -72,26 +85,6 @@ fun testScoreFitnessNaive() {
     val actualFitness: Double = scoreFitness(naiveSolution, exampleDistanceMatrix, maxFitness = 35.0)
 
     assertEquals(expectedFitness, actualFitness)
-}
-
-fun scoreFitness(solution: IntArray, distanceMatrix: Array<DoubleArray>, maxFitness: Double): Double {
-    var routeLength = distanceMatrix[0][solution[0]]
-    for ( i in 1 until solution.size) {
-        routeLength += distanceMatrix[solution[i-1]][solution[i]]
-    }
-
-    return maxFitness - (routeLength + distanceMatrix[solution.last()][0])
-}
-
-fun testOrderCrossover() {
-    //    TODO: Mock Random.nextInt. Only works with split index = 3
-    //    val parent1 = intArrayOf(3,4,8,2,7,1,6,5)
-    //    val parent2 = intArrayOf(4,2,5,1,6,8,3,7)
-    //    val expectedOffspring = intArrayOf(5,6,8,2,7,1,3,4)
-    //
-    //    val actualOffspring: IntArray = orderCrossover(parent1, parent2)
-    //    printPopulationMember(actualOffspring)
-    //    assertTrue(expectedOffspring.contentEquals(actualOffspring))
 }
 
 fun orderCrossover(parent1: IntArray, parent2: IntArray, windowSize: Int = 3): IntArray {
@@ -139,13 +132,15 @@ fun mutate(genome: IntArray, mutationChance: Double = 0.01): IntArray {
 fun createSelectionTable(
     population: Array<IntArray>,
     distanceMatrix: Array<DoubleArray>,
-    WORST_POSSIBLE_SCORE: Double
+    worstPossibleScore: Double,
+    likelyhoodCoeficient: Int = 1
+
 ): MutableList<IntArray> {
 
     val selectionTable = mutableListOf<IntArray>()
     population.forEach { member ->
-        val fitness = scoreFitness(member, distanceMatrix, WORST_POSSIBLE_SCORE)
-        val numLotteryTickets = fitness.toInt()
+        val fitness = scoreFitness(member, distanceMatrix, worstPossibleScore)
+        val numLotteryTickets = fitness.toInt() * likelyhoodCoeficient
         (0 until numLotteryTickets).map {selectionTable.add(member)}
     }
 
@@ -153,7 +148,6 @@ fun createSelectionTable(
 }
 
 fun naturalSelection(selectionTable:  MutableList<IntArray>): Pair<IntArray, IntArray> {
-
     val selectedCanidates = selectionTable.shuffled().take(2)
     return Pair(selectedCanidates[0], selectedCanidates[1])
 }
@@ -166,7 +160,7 @@ fun testCreateSelectionTable() {
     val naiveSolution = intArrayOf(1, 2, 3, 4, 5).map {it - 1}.toIntArray()
 
     val population = arrayOf(bestSolution, naiveSolution)
-    val selectionTable = createSelectionTable(population, exampleDistanceMatrix, WORST_POSSIBLE_SCORE = 35.0)
+    val selectionTable = createSelectionTable(population, exampleDistanceMatrix, worstPossibleScore = 35.0)
 
     // The best solution should have 16 tickets, and the naive solution should have 10 tickets,
     // totaling 16 + 10 = 26 tickets
@@ -212,6 +206,7 @@ fun main() {
     // Replace least-fit population with new individuals.
 
     //  Best solution for five: 19
+    //  Best solution for p01: 291
     //  Best solution for FRI26: 937
 
     testGetWorstPotentialScore()
@@ -219,47 +214,74 @@ fun main() {
     testGetDistanceMatrixFromFile()
     testScoreFitnessNaive()
     testScoreFitnessOptimal()
-    testOrderCrossover()
     testCreateSelectionTable()
 
-    val FILEPATH = five_filepath
-    val POPULATION_SIZE = 100
+    val FILEPATH = p01_filepath
+    val POPULATION_SIZE = 500
     val MUTATION_CHANCE = 0.01
     val MAX_ITERATIONS = 100
-    val WINDOW_SIZE = 2
+    val WINDOW_SIZE = 5
+    val LIKELYHOOD_COEF = 10
+
+//    val FILEPATH = fri26_filepath
+//    val POPULATION_SIZE = 500
+//    val MUTATION_CHANCE = 0.1
+//    val MAX_ITERATIONS = 200
+//    val WINDOW_SIZE = 14
 
     val distanceMatrix = getDistanceMatrixFromFile(FILEPATH)
     val WORST_POSSIBLE_SCORE = getWorstPotentialScore(distanceMatrix)
 
     println("Worst possible score: $WORST_POSSIBLE_SCORE")
 
-    val currentPopulation = Array(POPULATION_SIZE) { generateRandomSolution(distanceMatrix.size)}
+    var currentPopulation = Array(POPULATION_SIZE) { generateRandomSolution(distanceMatrix.size)}
     println("Preview of initial population:")
     currentPopulation.take(10).forEach ( ::printPopulationMember )
 
     var bestFitness = 0.0
+    var bestSolution = intArrayOf()
 
     (0..MAX_ITERATIONS).forEach{ generationNumber ->
         val nextPopulation = mutableListOf<IntArray>()
-        val selectionTable = createSelectionTable(currentPopulation, distanceMatrix, WORST_POSSIBLE_SCORE)
+        val selectionTable = createSelectionTable(currentPopulation,
+            distanceMatrix,
+            WORST_POSSIBLE_SCORE,
+            LIKELYHOOD_COEF
+        )
 
-        repeat((0..POPULATION_SIZE).count()) {
+        val generationFitnesses = DoubleArray(POPULATION_SIZE)
+
+        (0 until POPULATION_SIZE).forEach {
             val parents = naturalSelection(selectionTable)
-
+            println("Fitness of parents: ${scoreFitness(parents.first, distanceMatrix, WORST_POSSIBLE_SCORE)}, ${scoreFitness(parents.second, distanceMatrix, WORST_POSSIBLE_SCORE)}")
             val newMember = orderCrossover(parents.first, parents.second, WINDOW_SIZE)
             val mutatedMember = mutate(newMember, MUTATION_CHANCE)
 
             verifyPotentialSolutions(newMember, mutatedMember)
 
             val fitness = scoreFitness(mutatedMember, distanceMatrix, WORST_POSSIBLE_SCORE)
+            println("Fitness of offspring: $fitness")
+            generationFitnesses[it] = fitness
+
             if (fitness > bestFitness) {
                 bestFitness = fitness
+                bestSolution = mutatedMember
                 println("Improvement in generation number $generationNumber:")
                 printPopulationMember(mutatedMember)
                 println(fitness)
+                val originalRouteLength = WORST_POSSIBLE_SCORE - fitness
+                println("Resulting in route length: $originalRouteLength")
             }
 
             nextPopulation.add(mutatedMember)
         }
+
+        val averageGenerationFitness = generationFitnesses.sum() / generationFitnesses.size
+        println("Average fitness of generation $generationNumber was $averageGenerationFitness")
+
+        currentPopulation = nextPopulation.toTypedArray()
     }
+
+    println("Finished after $MAX_ITERATIONS iterations. Best fitness: $bestFitness")
+    printPopulationMember(bestSolution)
 }
