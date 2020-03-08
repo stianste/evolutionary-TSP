@@ -229,10 +229,12 @@ fun main() {
     testCreateSelectionTable()
 
     val FILEPATH = p01_filepath
+    var optimalSolution = if (FILEPATH == fri26_filepath) 937 else 291
+
     val POPULATION_SIZE = 100
-    val TOURNAMENT_SIZE = POPULATION_SIZE / 10
+    val TOURNAMENT_SIZE = 10
     val MUTATION_CHANCE = 0.05
-    val MAX_ITERATIONS = 1000
+    val MAX_ITERATIONS = 2000
     val WINDOW_SIZE = 6
     val LIKELYHOOD_COEF = 2
 
@@ -253,6 +255,7 @@ fun main() {
 
     var bestFitness = 0.0
     var bestSolution = intArrayOf()
+    var bestSolutionGeneration = 0
 
     (0..MAX_ITERATIONS).forEach{ generationNumber ->
         val nextPopulation = mutableListOf<IntArray>()
@@ -272,16 +275,17 @@ fun main() {
             verifyPotentialSolutions(newMember, mutatedMember)
 
             val fitness = scoreFitness(mutatedMember, distanceMatrix, WORST_POSSIBLE_SCORE)
-//            println("Fitness of parents: ${scoreFitness(parents.first, distanceMatrix, WORST_POSSIBLE_SCORE)}, ${scoreFitness(parents.second, distanceMatrix, WORST_POSSIBLE_SCORE)}")
-//            println("Fitness of offspring: $fitness")
             generationFitnesses[it] = fitness
 
             if (fitness > bestFitness) {
                 bestFitness = fitness
                 bestSolution = mutatedMember
+                bestSolutionGeneration = generationNumber
+
                 println("Improvement in generation number $generationNumber:")
                 printPopulationMember(mutatedMember)
                 println(fitness)
+
                 val originalRouteLength = WORST_POSSIBLE_SCORE - fitness
                 println("Resulting in route length: $originalRouteLength")
             }
@@ -295,6 +299,11 @@ fun main() {
         currentPopulation = nextPopulation.toTypedArray()
     }
 
-    println("Finished after $MAX_ITERATIONS iterations. Best fitness: $bestFitness, which results in route length ${WORST_POSSIBLE_SCORE - bestFitness}")
+    println("Finished after $MAX_ITERATIONS iterations. Best fitness: $bestFitness, " +
+            "which results in route length ${WORST_POSSIBLE_SCORE - bestFitness}, " +
+            "which is ${WORST_POSSIBLE_SCORE - bestFitness - optimalSolution} " +
+            "away from optimal solution. " +
+            "This solution was found in generation $bestSolutionGeneration"
+    )
     printPopulationMember(bestSolution)
 }
