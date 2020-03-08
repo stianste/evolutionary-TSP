@@ -230,9 +230,10 @@ fun main() {
 
     val FILEPATH = p01_filepath
     val POPULATION_SIZE = 100
-    val MUTATION_CHANCE = 0.1
+    val TOURNAMENT_SIZE = POPULATION_SIZE / 10
+    val MUTATION_CHANCE = 0.05
     val MAX_ITERATIONS = 1000
-    val WINDOW_SIZE = 9
+    val WINDOW_SIZE = 6
     val LIKELYHOOD_COEF = 2
 
 //    val FILEPATH = fri26_filepath
@@ -264,7 +265,7 @@ fun main() {
         val generationFitnesses = DoubleArray(POPULATION_SIZE)
 
         (0 until POPULATION_SIZE).forEach {
-            val parents = naturalSelectionByTournament(currentPopulation, distanceMatrix, WORST_POSSIBLE_SCORE)
+            val parents = naturalSelectionByTournament(currentPopulation, distanceMatrix, WORST_POSSIBLE_SCORE, k = TOURNAMENT_SIZE)
             val newMember = orderCrossover(parents.first, parents.second, WINDOW_SIZE)
             val mutatedMember = mutate(newMember, MUTATION_CHANCE)
 
