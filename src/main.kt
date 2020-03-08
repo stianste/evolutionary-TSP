@@ -147,6 +147,18 @@ fun createSelectionTable(
     return selectionTable
 }
 
+fun deterministicTournamentSelection(population: Array<IntArray>, distanceMatrix: Array<DoubleArray>, worstPossibleScore: Double, k: Int = 10): IntArray {
+    val tournamentCanidates = mutableListOf(population).shuffled().take(k)[0]
+    return tournamentCanidates.maxBy { scoreFitness(it, distanceMatrix, worstPossibleScore) }!!
+}
+
+fun naturalSelectionByTournament(population: Array<IntArray>, distanceMatrix: Array<DoubleArray>, worstPossibleScore: Double, k: Int = 10): Pair<IntArray, IntArray> {
+    return Pair(
+        deterministicTournamentSelection(population, distanceMatrix, worstPossibleScore, k),
+        deterministicTournamentSelection(population, distanceMatrix, worstPossibleScore, k)
+    )
+}
+
 fun naturalSelection(selectionTable:  MutableList<IntArray>): Pair<IntArray, IntArray> {
     val selectedCanidates = selectionTable.shuffled().take(2)
     return Pair(selectedCanidates[0], selectedCanidates[1])
@@ -217,11 +229,11 @@ fun main() {
     testCreateSelectionTable()
 
     val FILEPATH = p01_filepath
-    val POPULATION_SIZE = 500
-    val MUTATION_CHANCE = 0.01
-    val MAX_ITERATIONS = 100
-    val WINDOW_SIZE = 5
-    val LIKELYHOOD_COEF = 10
+    val POPULATION_SIZE = 100
+    val MUTATION_CHANCE = 0.1
+    val MAX_ITERATIONS = 1000
+    val WINDOW_SIZE = 9
+    val LIKELYHOOD_COEF = 2
 
 //    val FILEPATH = fri26_filepath
 //    val POPULATION_SIZE = 500
@@ -252,15 +264,15 @@ fun main() {
         val generationFitnesses = DoubleArray(POPULATION_SIZE)
 
         (0 until POPULATION_SIZE).forEach {
-            val parents = naturalSelection(selectionTable)
-            println("Fitness of parents: ${scoreFitness(parents.first, distanceMatrix, WORST_POSSIBLE_SCORE)}, ${scoreFitness(parents.second, distanceMatrix, WORST_POSSIBLE_SCORE)}")
+            val parents = naturalSelectionByTournament(currentPopulation, distanceMatrix, WORST_POSSIBLE_SCORE)
             val newMember = orderCrossover(parents.first, parents.second, WINDOW_SIZE)
             val mutatedMember = mutate(newMember, MUTATION_CHANCE)
 
             verifyPotentialSolutions(newMember, mutatedMember)
 
             val fitness = scoreFitness(mutatedMember, distanceMatrix, WORST_POSSIBLE_SCORE)
-            println("Fitness of offspring: $fitness")
+//            println("Fitness of parents: ${scoreFitness(parents.first, distanceMatrix, WORST_POSSIBLE_SCORE)}, ${scoreFitness(parents.second, distanceMatrix, WORST_POSSIBLE_SCORE)}")
+//            println("Fitness of offspring: $fitness")
             generationFitnesses[it] = fitness
 
             if (fitness > bestFitness) {
@@ -282,6 +294,6 @@ fun main() {
         currentPopulation = nextPopulation.toTypedArray()
     }
 
-    println("Finished after $MAX_ITERATIONS iterations. Best fitness: $bestFitness")
+    println("Finished after $MAX_ITERATIONS iterations. Best fitness: $bestFitness, which results in route length ${WORST_POSSIBLE_SCORE - bestFitness}")
     printPopulationMember(bestSolution)
 }
