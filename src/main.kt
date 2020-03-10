@@ -1,8 +1,9 @@
 import java.io.File
-import kotlin.random.Random.Default.nextDouble
-import kotlin.random.Random.Default.nextInt
+import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+
+val random = Random(2)
 
 val exampleDistanceMatrix = arrayOf(
     doubleArrayOf(0.0,  3.0,  4.0,  2.0,  7.0),
@@ -37,7 +38,6 @@ fun testMapStringToDoubleArray() {
 }
 
 fun getDistanceMatrixFromFile(fileName: String): Array<DoubleArray> {
-
     val distanceMatrix = mutableListOf<DoubleArray>()
 
     File(fileName).useLines { line ->
@@ -57,7 +57,7 @@ fun testGetDistanceMatrixFromFile() {
 
 fun generateRandomSolution(totalNumberOfCities: Int): IntArray {
     // Start at 1 to omit the origin city
-    return (1 until totalNumberOfCities).toList().shuffled().toIntArray()
+    return (1 until totalNumberOfCities).toList().shuffled(random).toIntArray()
 }
 
 fun scoreFitness(solution: IntArray, distanceMatrix: Array<DoubleArray>, maxFitness: Double): Double {
@@ -89,7 +89,7 @@ fun testScoreFitnessNaive() {
 
 fun orderCrossover(parent1: IntArray, parent2: IntArray, windowSize: Int = 3): IntArray {
     val parentLengths = parent1.size
-    val splitIndex = nextInt(parentLengths - windowSize - 1)
+    val splitIndex = random.nextInt(parentLengths - windowSize - 1)
 
     val offspring = IntArray(parentLengths)
 
@@ -112,15 +112,15 @@ fun orderCrossover(parent1: IntArray, parent2: IntArray, windowSize: Int = 3): I
 }
 
 fun mutate(genome: IntArray, mutationChance: Double = 0.01): IntArray {
-    if (nextDouble() > mutationChance) {
+    if (random.nextDouble() > mutationChance) {
         return genome
     }
 
-    val firstSwapIndex = nextInt(genome.size)
-    var secondSwapIndex = nextInt(genome.size)
+    val firstSwapIndex = random.nextInt(genome.size)
+    var secondSwapIndex = random.nextInt(genome.size)
 
     while (secondSwapIndex == firstSwapIndex)
-        secondSwapIndex = nextInt(genome.size)
+        secondSwapIndex = random.nextInt(genome.size)
 
     val newGenome = genome.toMutableList()
     newGenome[firstSwapIndex] = genome[secondSwapIndex]
@@ -148,7 +148,7 @@ fun createSelectionTable(
 }
 
 fun deterministicTournamentSelection(population: Array<IntArray>, distanceMatrix: Array<DoubleArray>, worstPossibleScore: Double, k: Int = 10): IntArray {
-    val tournamentCanidates = mutableListOf(population).shuffled().take(k)[0]
+    val tournamentCanidates = mutableListOf(population).shuffled(random).take(k)[0]
     return tournamentCanidates.maxBy { scoreFitness(it, distanceMatrix, worstPossibleScore) }!!
 }
 
@@ -160,7 +160,7 @@ fun naturalSelectionByTournament(population: Array<IntArray>, distanceMatrix: Ar
 }
 
 fun naturalSelection(selectionTable:  MutableList<IntArray>): Pair<IntArray, IntArray> {
-    val selectedCanidates = selectionTable.shuffled().take(2)
+    val selectedCanidates = selectionTable.shuffled(random).take(2)
     return Pair(selectedCanidates[0], selectedCanidates[1])
 }
 
