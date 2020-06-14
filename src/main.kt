@@ -66,14 +66,16 @@ fun scoreFitness(solution: IntArray, distanceMatrix: Array<DoubleArray>, maxFitn
         routeLength += distanceMatrix[solution[i-1]][solution[i]]
     }
 
-    return maxFitness - (routeLength + distanceMatrix[solution.last()][0])
+    routeLength += distanceMatrix[solution.last()][0]
+
+    return maxFitness - routeLength
 }
 
 fun testScoreFitnessOptimal() {
     // TODO: Write proper tests suite
     // Subtract one from optimal solution for 0 index
     val bestSolution = intArrayOf(1, 3, 2, 5, 4).map { it - 1 }.toIntArray()
-    val expectedFitness = 35 - 19.0 // 11
+    val expectedFitness = 35 - 19.0
     val actualFitness: Double = scoreFitness(bestSolution, exampleDistanceMatrix, maxFitness = 35.0)
 
     assertEquals(expectedFitness, actualFitness)
@@ -81,7 +83,7 @@ fun testScoreFitnessOptimal() {
 
 fun testScoreFitnessNaive() {
     val naiveSolution = intArrayOf(1, 2, 3, 4, 5).map {it - 1}.toIntArray()
-    val expectedFitness = 35.0 - 25.0 // 5.0
+    val expectedFitness = 35.0 - 25.0
     val actualFitness: Double = scoreFitness(naiveSolution, exampleDistanceMatrix, maxFitness = 35.0)
 
     assertEquals(expectedFitness, actualFitness)
@@ -101,7 +103,7 @@ fun orderCrossover(parent1: IntArray, parent2: IntArray, windowSize: Int = 3): I
     for (i in parent2.indices) {
         val parentIndex  = (i + splitIndex + windowSize) % parentLengths
         val offspringIndex  = (offspringBaseIndex + splitIndex + windowSize) % parentLengths
-        val candidate: Int = parent2[parentIndex]
+        val candidate = parent2[parentIndex]
         if (!offspring.contains(candidate)) {
             offspring[offspringIndex] = candidate
             offspringBaseIndex += 1
@@ -147,12 +149,24 @@ fun createSelectionTable(
     return selectionTable
 }
 
-fun deterministicTournamentSelection(population: Array<IntArray>, distanceMatrix: Array<DoubleArray>, worstPossibleScore: Double, k: Int = 10): IntArray {
-    val tournamentCanidates = mutableListOf(population).shuffled(random).take(k)[0]
-    return tournamentCanidates.maxBy { scoreFitness(it, distanceMatrix, worstPossibleScore) }!!
+fun deterministicTournamentSelection(
+        population: Array<IntArray>,
+        distanceMatrix: Array<DoubleArray>,
+        worstPossibleScore: Double,
+        k: Int = 10
+    ): IntArray {
+
+    val tournamentCandidates = mutableListOf(population).shuffled(random).take(k)[0]
+    return tournamentCandidates.maxBy { scoreFitness(it, distanceMatrix, worstPossibleScore) }!!
 }
 
-fun naturalSelectionByTournament(population: Array<IntArray>, distanceMatrix: Array<DoubleArray>, worstPossibleScore: Double, k: Int = 10): Pair<IntArray, IntArray> {
+fun naturalSelectionByTournament(
+        population: Array<IntArray>,
+        distanceMatrix: Array<DoubleArray>,
+        worstPossibleScore: Double,
+        k: Int = 10
+    ): Pair<IntArray, IntArray> {
+
     return Pair(
         deterministicTournamentSelection(population, distanceMatrix, worstPossibleScore, k),
         deterministicTournamentSelection(population, distanceMatrix, worstPossibleScore, k)
@@ -165,17 +179,15 @@ fun naturalSelection(selectionTable:  MutableList<IntArray>): Pair<IntArray, Int
 }
 
 fun testCreateSelectionTable() {
-    // 35 - 19 = 16 fitness
     val bestSolution = intArrayOf(1, 3, 2, 5, 4).map { it - 1 }.toIntArray()
 
-    // 35 - 25 = 10 fitness
     val naiveSolution = intArrayOf(1, 2, 3, 4, 5).map {it - 1}.toIntArray()
 
     val population = arrayOf(bestSolution, naiveSolution)
     val selectionTable = createSelectionTable(population, exampleDistanceMatrix, worstPossibleScore = 35.0)
 
     // The best solution should have 16 tickets, and the naive solution should have 10 tickets,
-    // totaling 16 + 10 = 26 tickets
+    // totaling 26 tickets
     assertEquals(26, selectionTable.size)
 }
 
@@ -205,6 +217,7 @@ fun verifyPotentialSolutions(newMember: IntArray, mutatedMember: IntArray) {
     }
 }
 
+
 fun main() {
     // Step One: Generate the initial population of individuals randomly. (First generation)
     //
@@ -228,21 +241,17 @@ fun main() {
     testScoreFitnessOptimal()
     testCreateSelectionTable()
 
+    val startTime = System.currentTimeMillis()
+
     val FILEPATH = p01_filepath
-    var optimalSolution = if (FILEPATH == fri26_filepath) 937 else 291
+    val optimalSolution = if (FILEPATH == fri26_filepath) 937 else 291
 
-    val POPULATION_SIZE = 100
-    val TOURNAMENT_SIZE = 10
-    val MUTATION_CHANCE = 0.05
-    val MAX_ITERATIONS = 2000
-    val WINDOW_SIZE = 6
-    val LIKELYHOOD_COEF = 2
-
-//    val FILEPATH = fri26_filepath
-//    val POPULATION_SIZE = 500
-//    val MUTATION_CHANCE = 0.1
-//    val MAX_ITERATIONS = 200
-//    val WINDOW_SIZE = 14
+    val POPULATION_SIZE = 150
+    val TOURNAMENT_SIZE = POPULATION_SIZE / 5
+    val MUTATION_CHANCE = 0.025
+    val MAX_ITERATIONS = 100
+    val WINDOW_SIZE = 2
+    val NEW_OLD_POPULATION_RATIO = 0.1
 
     val distanceMatrix = getDistanceMatrixFromFile(FILEPATH)
     val WORST_POSSIBLE_SCORE = getWorstPotentialScore(distanceMatrix)
@@ -256,19 +265,19 @@ fun main() {
     var bestFitness = 0.0
     var bestSolution = intArrayOf()
     var bestSolutionGeneration = 0
+    var bestSolutionTime = 0L
 
     (0..MAX_ITERATIONS).forEach{ generationNumber ->
         val nextPopulation = mutableListOf<IntArray>()
-        val selectionTable = createSelectionTable(currentPopulation,
-            distanceMatrix,
-            WORST_POSSIBLE_SCORE,
-            LIKELYHOOD_COEF
-        )
-
         val generationFitnesses = DoubleArray(POPULATION_SIZE)
 
         (0 until POPULATION_SIZE).forEach {
-            val parents = naturalSelectionByTournament(currentPopulation, distanceMatrix, WORST_POSSIBLE_SCORE, k = TOURNAMENT_SIZE)
+            val parents = naturalSelectionByTournament(
+                currentPopulation,
+                distanceMatrix,
+                WORST_POSSIBLE_SCORE,
+                k = TOURNAMENT_SIZE
+            )
             val newMember = orderCrossover(parents.first, parents.second, WINDOW_SIZE)
             val mutatedMember = mutate(newMember, MUTATION_CHANCE)
 
@@ -281,6 +290,7 @@ fun main() {
                 bestFitness = fitness
                 bestSolution = mutatedMember
                 bestSolutionGeneration = generationNumber
+                bestSolutionTime = System.currentTimeMillis() - startTime
 
                 println("Improvement in generation number $generationNumber:")
                 printPopulationMember(mutatedMember)
@@ -296,14 +306,38 @@ fun main() {
         val averageGenerationFitness = generationFitnesses.sum() / generationFitnesses.size
         println("Average fitness of generation $generationNumber was $averageGenerationFitness")
 
-        currentPopulation = nextPopulation.toTypedArray()
+        currentPopulation = combinePopulations(
+            currentPopulation,
+            nextPopulation.toTypedArray(),
+            NEW_OLD_POPULATION_RATIO,
+            distanceMatrix,
+            WORST_POSSIBLE_SCORE
+        )
     }
 
     println("Finished after $MAX_ITERATIONS iterations. Best fitness: $bestFitness, " +
             "which results in route length ${WORST_POSSIBLE_SCORE - bestFitness}, " +
             "which is ${WORST_POSSIBLE_SCORE - bestFitness - optimalSolution} " +
             "away from optimal solution. " +
-            "This solution was found in generation $bestSolutionGeneration"
+            "This solution was found in generation $bestSolutionGeneration " +
+            "after $bestSolutionTime ms"
     )
     printPopulationMember(bestSolution)
+}
+
+fun combinePopulations(
+        currentPopulation: Array<IntArray>,
+        nextPopulation: Array<IntArray>,
+        ratio: Double,
+        distanceMatrix: Array<DoubleArray>,
+        worstPossibleScore: Double
+    ): Array<IntArray> {
+
+    fun getTopRatioCandidatesOf(population: Array<IntArray>, ratio: Double): Array<IntArray> {
+        return population.sortedBy { -1.0 * scoreFitness(it, distanceMatrix, worstPossibleScore) }
+            .take((population.size * ratio).toInt()).toTypedArray()
+    }
+
+    return getTopRatioCandidatesOf(currentPopulation, 1.0 - ratio) +
+            getTopRatioCandidatesOf(nextPopulation, ratio)
 }
