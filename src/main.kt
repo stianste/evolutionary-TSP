@@ -3,7 +3,7 @@ import kotlin.random.Random
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-val random = Random(2)
+val random = Random(1)
 
 val exampleDistanceMatrix = arrayOf(
     doubleArrayOf(0.0,  3.0,  4.0,  2.0,  7.0),
@@ -156,7 +156,7 @@ fun deterministicTournamentSelection(
         k: Int = 10
     ): IntArray {
 
-    val tournamentCandidates = mutableListOf(population).shuffled(random).take(k)[0]
+    val tournamentCandidates = population.toList().shuffled(random).take(k)
     return tournamentCandidates.maxBy { scoreFitness(it, distanceMatrix, worstPossibleScore) }!!
 }
 
@@ -174,8 +174,8 @@ fun naturalSelectionByTournament(
 }
 
 fun naturalSelection(selectionTable:  MutableList<IntArray>): Pair<IntArray, IntArray> {
-    val selectedCanidates = selectionTable.shuffled(random).take(2)
-    return Pair(selectedCanidates[0], selectedCanidates[1])
+    val selectedCandidates = selectionTable.shuffled(random).take(2)
+    return Pair(selectedCandidates[0], selectedCandidates[1])
 }
 
 fun testCreateSelectionTable() {
@@ -243,15 +243,15 @@ fun main() {
 
     val startTime = System.currentTimeMillis()
 
-    val FILEPATH = p01_filepath
+    val FILEPATH = fri26_filepath
     val optimalSolution = if (FILEPATH == fri26_filepath) 937 else 291
 
-    val POPULATION_SIZE = 150
-    val TOURNAMENT_SIZE = POPULATION_SIZE / 5
-    val MUTATION_CHANCE = 0.025
-    val MAX_ITERATIONS = 100
-    val WINDOW_SIZE = 2
+    val POPULATION_SIZE = 1000
+    val TOURNAMENT_SIZE = POPULATION_SIZE / 10
+    val MUTATION_CHANCE = 0.03
     val NEW_OLD_POPULATION_RATIO = 0.1
+    val MAX_ITERATIONS = 500
+    val WINDOW_SIZE = 8
 
     val distanceMatrix = getDistanceMatrixFromFile(FILEPATH)
     val WORST_POSSIBLE_SCORE = getWorstPotentialScore(distanceMatrix)
