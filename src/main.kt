@@ -1,7 +1,5 @@
 import java.io.File
 import kotlin.random.Random
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 
 val random = Random(1)
 
@@ -26,15 +24,8 @@ fun printPopulationMember(member: IntArray) {
     println("]")
 }
 
-private fun mapStringToDoubleArray(s: String): DoubleArray {
+fun mapStringToDoubleArray(s: String): DoubleArray {
     return s.split(" ").filter{it != ""}.map { it.toDouble() }.toDoubleArray()
-}
-
-fun testMapStringToDoubleArray() {
-    val input = "1.0 2.0 3.0 4.0"
-    val expected = doubleArrayOf(1.0, 2.0, 3.0, 4.0)
-    val actual = mapStringToDoubleArray(input)
-    assertTrue(expected contentEquals actual)
 }
 
 fun getDistanceMatrixFromFile(fileName: String): Array<DoubleArray> {
@@ -49,11 +40,6 @@ fun getDistanceMatrixFromFile(fileName: String): Array<DoubleArray> {
     return distanceMatrix.toTypedArray()
 }
 
-fun testGetDistanceMatrixFromFile() {
-    val distanceMatrix = getDistanceMatrixFromFile(five_filepath)
-
-    assertTrue(distanceMatrix contentDeepEquals exampleDistanceMatrix)
-}
 
 fun generateRandomSolution(totalNumberOfCities: Int): IntArray {
     // Start at 1 to omit the origin city
@@ -62,7 +48,7 @@ fun generateRandomSolution(totalNumberOfCities: Int): IntArray {
 
 fun scoreFitness(solution: IntArray, distanceMatrix: Array<DoubleArray>, maxFitness: Double): Double {
     var routeLength = distanceMatrix[0][solution[0]]
-    for ( i in 1 until solution.size) {
+    for (i in 1 until solution.size) {
         routeLength += distanceMatrix[solution[i-1]][solution[i]]
     }
 
@@ -71,23 +57,6 @@ fun scoreFitness(solution: IntArray, distanceMatrix: Array<DoubleArray>, maxFitn
     return maxFitness - routeLength
 }
 
-fun testScoreFitnessOptimal() {
-    // TODO: Write proper tests suite
-    // Subtract one from optimal solution for 0 index
-    val bestSolution = intArrayOf(1, 3, 2, 5, 4).map { it - 1 }.toIntArray()
-    val expectedFitness = 35 - 19.0
-    val actualFitness: Double = scoreFitness(bestSolution, exampleDistanceMatrix, maxFitness = 35.0)
-
-    assertEquals(expectedFitness, actualFitness)
-}
-
-fun testScoreFitnessNaive() {
-    val naiveSolution = intArrayOf(1, 2, 3, 4, 5).map {it - 1}.toIntArray()
-    val expectedFitness = 35.0 - 25.0
-    val actualFitness: Double = scoreFitness(naiveSolution, exampleDistanceMatrix, maxFitness = 35.0)
-
-    assertEquals(expectedFitness, actualFitness)
-}
 
 fun orderCrossover(parent1: IntArray, parent2: IntArray, windowSize: Int = 3): IntArray {
     val parentLengths = parent1.size
@@ -157,7 +126,7 @@ fun deterministicTournamentSelection(
     ): IntArray {
 
     val tournamentCandidates = population.toList().shuffled(random).take(k)
-    return tournamentCandidates.maxBy { scoreFitness(it, distanceMatrix, worstPossibleScore) }!!
+    return tournamentCandidates.maxByOrNull { scoreFitness(it, distanceMatrix, worstPossibleScore) }!!
 }
 
 fun naturalSelectionByTournament(
@@ -178,28 +147,11 @@ fun naturalSelection(selectionTable:  MutableList<IntArray>): Pair<IntArray, Int
     return Pair(selectedCandidates[0], selectedCandidates[1])
 }
 
-fun testCreateSelectionTable() {
-    val bestSolution = intArrayOf(1, 3, 2, 5, 4).map { it - 1 }.toIntArray()
-
-    val naiveSolution = intArrayOf(1, 2, 3, 4, 5).map {it - 1}.toIntArray()
-
-    val population = arrayOf(bestSolution, naiveSolution)
-    val selectionTable = createSelectionTable(population, exampleDistanceMatrix, worstPossibleScore = 35.0)
-
-    // The best solution should have 16 tickets, and the naive solution should have 10 tickets,
-    // totaling 26 tickets
-    assertEquals(26, selectionTable.size)
-}
 
 fun getWorstPotentialScore(distanceMatrix: Array<DoubleArray>): Double {
-    return distanceMatrix.mapNotNull {it.max()}.toTypedArray().sumByDouble { it }
+    return distanceMatrix.mapNotNull { it.maxOrNull() }.toTypedArray().sumOf { it }
 }
 
-fun testGetWorstPotentialScore() {
-    val expected = 7.0 + 6.0 + 8.0 + 6.0 + 8.0
-    val actual = getWorstPotentialScore(exampleDistanceMatrix)
-    assertEquals(expected, actual)
-}
 
 fun <T> verifyAllValuesInArrayUnique(array: Array<T>): Boolean {
     return array.toSet().size == array.size
@@ -215,6 +167,23 @@ fun verifyPotentialSolutions(newMember: IntArray, mutatedMember: IntArray) {
         println("WARNING: mutated child is invalid:")
         printPopulationMember(mutatedMember)
     }
+}
+
+fun combinePopulations(
+    currentPopulation: Array<IntArray>,
+    nextPopulation: Array<IntArray>,
+    ratio: Double,
+    distanceMatrix: Array<DoubleArray>,
+    worstPossibleScore: Double
+): Array<IntArray> {
+
+    fun getTopRatioCandidatesOf(population: Array<IntArray>, ratio: Double): Array<IntArray> {
+        return population.sortedBy { -1.0 * scoreFitness(it, distanceMatrix, worstPossibleScore) }
+            .take((population.size * ratio).toInt()).toTypedArray()
+    }
+
+    return getTopRatioCandidatesOf(currentPopulation, 1.0 - ratio) +
+            getTopRatioCandidatesOf(nextPopulation, ratio)
 }
 
 
@@ -234,23 +203,16 @@ fun main() {
     //  Best solution for p01: 291
     //  Best solution for FRI26: 937
 
-    testGetWorstPotentialScore()
-    testMapStringToDoubleArray()
-    testGetDistanceMatrixFromFile()
-    testScoreFitnessNaive()
-    testScoreFitnessOptimal()
-    testCreateSelectionTable()
-
     val startTime = System.currentTimeMillis()
 
-    val FILEPATH = fri26_filepath
+    val FILEPATH = p01_filepath
     val optimalSolution = if (FILEPATH == fri26_filepath) 937 else 291
 
     val POPULATION_SIZE = 1000
     val TOURNAMENT_SIZE = POPULATION_SIZE / 10
     val MUTATION_CHANCE = 0.03
     val NEW_OLD_POPULATION_RATIO = 0.1
-    val MAX_ITERATIONS = 500
+    val MAX_ITERATIONS = 200
     val WINDOW_SIZE = 8
 
     val distanceMatrix = getDistanceMatrixFromFile(FILEPATH)
@@ -325,19 +287,3 @@ fun main() {
     printPopulationMember(bestSolution)
 }
 
-fun combinePopulations(
-        currentPopulation: Array<IntArray>,
-        nextPopulation: Array<IntArray>,
-        ratio: Double,
-        distanceMatrix: Array<DoubleArray>,
-        worstPossibleScore: Double
-    ): Array<IntArray> {
-
-    fun getTopRatioCandidatesOf(population: Array<IntArray>, ratio: Double): Array<IntArray> {
-        return population.sortedBy { -1.0 * scoreFitness(it, distanceMatrix, worstPossibleScore) }
-            .take((population.size * ratio).toInt()).toTypedArray()
-    }
-
-    return getTopRatioCandidatesOf(currentPopulation, 1.0 - ratio) +
-            getTopRatioCandidatesOf(nextPopulation, ratio)
-}
